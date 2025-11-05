@@ -17,6 +17,8 @@ pandas
 numpy
 matplotlib               # 데이터 시각화(플롯)용
 openpyxl                 # 엑셀 파일 로드용
+# (NumPy 2.x 충돌 방지를 위해 1.x 버전대로 강제 고정 - 중요!)
+numpy~=1.26.4
 
 # 4. Day 3 (DE): RAG 파이프라인
 # 4a. RAG - 로컬 임베딩
@@ -42,6 +44,7 @@ tavily-python            # (선택) Tavily (에이전트용 구글 검색 도구
 # 6. Day 1: 개발 환경 (Jupyter)
 jupyterlab
 notebook
+ipywidgets               # (추가) tqdm의 예쁜 진행률 표시줄을 위함
 
 # 7. Day 1: 금융 보안 (PII)
 presidio                 # (필수) PII 민감정보 식별 및 마스킹

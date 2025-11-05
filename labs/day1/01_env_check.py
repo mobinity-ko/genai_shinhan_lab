@@ -8,45 +8,62 @@
 
 # %%
 # [셀 실행 방법]
-# 1. 이 셀에 마우스 커서를 올리면 좌측 상단에 'Run Cell' 버튼이 보입니다. (혹은 Shift + Enter)
+# 1. (Shift + Enter)
 # 2. 이 셀을 실행했을 때, **오류 없이** 라이브러리 버전과 성공 메시지가 출력되면 환경 구축에 성공한 것입니다.
+#
+# (참고) __version__ 속성 대신, 설치된 패키지 메타데이터를 직접 읽는
+#        'importlib.metadata'를 사용하여 버전을 확인합니다. (가장 안전한 방법)
 
-import os
 import sys
-import pandas as pd
-import streamlit as st
-import torch
-import langchain
-import chromadb
-import ragas
-import langgraph
-import presidio_analyzer
-import presidio_anonymizer
+import importlib.metadata
 
 print(f"--- 환경 검사 성공 ---")
-print(f"Python 버전: {sys.version.split(' ')[0]}")
-print(f"Pandas 버전: {pd.__version__}")
-print(f"Streamlit 버전: {st.__version__}")
-print(f"PyTorch 버전: {torch.__version__}")
-print(f"LangChain 버전: {langchain.__version__}")
-print(f"ChromaDB 버전: {chromadb.__version__}")
-print(f"RAGAs 버전: {ragas.__version__}")
-print(f"LangGraph 버전: {langgraph.__version__}")
-print(f"Presidio (PII) 버전: {presidio_analyzer.__version__}")
-print(f"\n[성공] 6일간의 여정을 위한 모든 준비가 완료되었습니다! 🚀")
+print(f"Python 버전: {sys.version.split(' ')[0]}\n")
+
+# requirements.txt의 핵심 라이브러리 목록
+core_libraries = [
+    "pandas",
+    "streamlit",
+    "torch",
+    "langchain",
+    "chromadb",
+    "ragas",
+    "langgraph",
+    "presidio-analyzer",
+    "numpy",
+    "ipywidgets"
+]
+
+all_ok = True
+for lib in core_libraries:
+    try:
+        version = importlib.metadata.version(lib)
+        print(f"✅ {lib: <20} 버전: {version}")
+        
+        # (중요) NumPy 2.x 충돌 방지 확인
+        if lib == "numpy" and not version.startswith("1."):
+            print(f"   🚨 [경고] NumPy 버전이 1.x가 아닙니다. (현재: {version})")
+            print(f"   torch, pandas 등과 충돌할 수 있습니다. requirements.txt를 확인하세요.")
+            all_ok = False
+            
+    except importlib.metadata.PackageNotFoundError:
+        print(f"❌ [오류] {lib: <20} 라이브러리가 설치되지 않았습니다!")
+        all_ok = False
+
+if all_ok:
+    print(f"\n[성공] 6일간의 여정을 위한 모든 준비가 완료되었습니다! 🚀")
+else:
+    print(f"\n[실패] 일부 라이브러리에 문제가 있습니다. 로그를 확인하고 재설치하세요.")
+
 
 # %% [markdown]
 # ### (선택) VS Code + Jupyter 연동 확인
-# 
-# 위 셀에서 라이브러리 버전이 잘 출력되었다면,
-# 이제 VS Code가 Jupyter 커널(가상환경)을 잘 인식하고 있는지 확인합니다.
 
 # %%
-# 이 셀을 실행했을 때, 'a'의 값인 10이 출력되면 정상입니다.
 a = 10
 print(f"변수 'a'의 값은: {a}")
 
 # %%
-# 이 셀을 실행했을 때, 위 셀에서 정의한 'a'의 값을
-# 이어서 사용할 수 있다면(11 출력) 연동에 성공한 것입니다.
+# 이 셀을 실행했을 때, 위 셀의 'a' 값을 이어받아 '11'이 출력되면 연동 성공입니다.
 print(f"변수 'a'에 1을 더한 값은: {a + 1}")
+# %%

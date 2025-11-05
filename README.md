@@ -48,13 +48,13 @@
 ## 3. 🗺️ 프로젝트 구조
 
 * `/data/`: 실습에 필요한 모든 원본/가공 데이터가 있습니다.
-* `/labs/`: **우리의 핵심 실습 공간입니다.** `day_01`부터 순서대로 `.py` 파일을 열고, `"# %%"` 셀 단위로 실습을 진행합니다.
+* `/labs/`: **우리의 핵심 실습 공간입니다.** `day1`부터 순서대로 `.py` 파일을 열고, `"# %%"` 셀 단위로 실습을 진행합니다.
 * `/src/`: 자주 사용되는 공통 함수가 저장됩니다. (예: `utils.py`)
 * `requirements.txt`: 모든 Python 라이브러리 목록입니다.
 
 ## 4. 🗓️ 일일 랩 가이드
 
-* **Day 1:** [환경 구축 및 보안 API 호출](./labs/day_01_setup_security/)
-* **Day 2:** [DA - LangChain Agent와 Streamlit](./labs/day_02_da_streamlit/)
-* **Day 3:** [DE - 로컬 RAG 파이프라인 구축 및 평가](./labs/day_03_de_rag/)
+* **Day 1:** [환경 구축 및 보안 API 호출](./labs/day1/)
+* **Day 2:** [DA - LangChain Agent와 Streamlit](./labs/day2/)
+* **Day 3:** [DE - 로컬 RAG 파이프라인 구축 및 평가](./labs/day3/)
 * ... (이하 생략)
