@@ -1,0 +1,49 @@
+# 1. GenAI 핵심 (LangChain 및 API)
+langchain
+langchain-core
+langchain-cli
+langchain-community
+langchain-openai         # OpenAI API 용
+langchain-anthropic    # Anthropic API 용
+langchain-google-genai   # Gemini API 용 (필수)
+langsmith                # (권장) LangChain 디버깅 및 추적용
+
+# 2. Day 2 (DA): Streamlit (Web App)
+streamlit
+streamlit-chat
+
+# 3. Day 2 (DA): Pandas Agent (BI 분석)
+pandas
+numpy
+matplotlib               # 데이터 시각화(플롯)용
+openpyxl                 # 엑셀 파일 로드용
+
+# 4. Day 3 (DE): RAG 파이프라인
+# 4a. RAG - 로컬 임베딩
+sentence-transformers    # (필수) 로컬 임베딩 모델(HuggingFace) 실행용
+torch                    # PyTorch (sentence-transformers 의존성)
+
+# 4b. RAG - 로컬 벡터 DB
+chromadb                 # (필수) 로컬 벡터 저장소 (ChromaDB)
+faiss-cpu                # (선택) FAISS (ChromaDB 대신 사용 가능)
+
+# 4c. RAG - 문서 로더 (PDF, Txt 등)
+pypdf                    # PDF 파일 로드용
+unstructured             # 복잡한 문서(HTML, PPT 등) 로드용 (선택)
+python-dotenv            # .env 파일 관리 (API Key 보안)
+
+# 4d. RAG - 평가
+ragas                    # (필수) RAG 파이프라인 평가용
+
+# 5. Day 5 (Advanced): Agents
+langgraph                # (필수) LangGraph (멀티-에이전트)
+tavily-python            # (선택) Tavily (에이전트용 구글 검색 도구)
+
+# 6. Day 1: 개발 환경 (Jupyter)
+jupyterlab
+notebook
+
+# 7. Day 1: 금융 보안 (PII)
+presidio                 # (필수) PII 민감정보 식별 및 마스킹
+presidio-analyzer
+presidio-anonymizer
