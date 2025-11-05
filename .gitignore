@@ -1,0 +1,20 @@
+# Python
+venv/
+*.pyc
+__pycache__/
+
+# VS Code / OS
+.vscode/
+.DS_Store
+
+# 비밀 (Secrets)
+*.env
+.env
+
+# 데이터베이스 (Vector DB)
+data/vector_db/
+*.db
+*.sqlite3
+
+# Jupyter (혹시 모를)
+.ipynb_checkpoints/
