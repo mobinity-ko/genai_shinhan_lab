@@ -1,0 +1,7 @@
+2023-10-27 10:30:01,ERROR,192.168.1.10,PaymentFailed,User=123
+2023-10-27 10:31:05,INFO,10.0.0.1,UserLogin,User=456
+2023-10-27 10:32:15,WARNING,192.168.1.10,LowDiskSpace,Device=ServerA
+2023-10-27 10:33:00,ERROR,172.16.0.5,DatabaseConnectionFailed,DB=Primary
+2023-10-27 10:34:22,INFO,10.0.0.2,FileUploaded,User=123,File=report.pdf
+2023-10-27 10:35:10,DEBUG,192.168.1.10,CacheMiss,Key=user:profile:456
+2023-10-27 10:36:00,ERROR,10.0.0.1,Timeout,Service=API

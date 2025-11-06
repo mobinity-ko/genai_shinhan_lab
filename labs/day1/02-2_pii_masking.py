@@ -71,8 +71,7 @@ if analyzer_results:
 # 이제 고객의 민감정보가 제거된 'anonymized_text'를 사용해
 # LLM에게 "이 고객의 VOC를 한 문장으로 요약해줘" 라고 요청합니다.
 
-# [YOUR_CODE_HERE]
-# (힌트) Section 2에서 사용한 model.generate_content()를 다시 호출하되,
+# Section 2에서 사용한 model.generate_content()를 다시 호출하되,
 # PII가 마스킹된 'anonymized_text'를 입력값으로 사용합니다.
 
 API_KEY = os.getenv("POTENS_API_KEY")

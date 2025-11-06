@@ -21,3 +21,6 @@ data/vector_db/
 
 # pyenv (개인 환경 설정)
 .python-version
+
+wheels/
+labs/day1/test.py
