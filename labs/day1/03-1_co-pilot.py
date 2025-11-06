@@ -9,19 +9,36 @@
 # %%
 # === 1. 기본 설정 ===
 import os
-import google.generativeai as genai
+import requests  # 'google.generativeai' 대신 'requests' 임포트
 from dotenv import load_dotenv
 
 # .env 파일에서 API Key 로드
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = os.getenv("POTENS_API_KEY")
 
 if not API_KEY:
     print("🚨 [에러] .env 파일에서 API Key를 로드하세요.")
 else:
-    genai.configure(api_key=API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    print("✅ Gemini 클라이언트 초기화 완료.")
+    # POTENS API 설정
+    API_URL = "https://ai.potens.ai/api/chat"
+    HEADERS = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    print("✅ POTENS API 클라이언트 설정 완료.")
+
+# === (NEW) POTENS API 호출 헬퍼 함수 ===
+def call_potens_api(prompt, system_prompt=None):
+    """POTENS API를 호출하는 헬퍼 함수"""
+    body = {"prompt": prompt}
+    if system_prompt:
+        body["system_prompt"] = system_prompt
+    
+    response = requests.post(API_URL, headers=HEADERS, json=body)
+    response.raise_for_status() # 오류가 있으면 예외 발생
+    
+    api_response = response.json()
+    return api_response.get('message', 'Error: "message" key not found')
 
 # %% [markdown]
 # ---
@@ -40,9 +57,11 @@ re.findall()을 사용하는 예시 코드로 보여줘.
 """
 
 try:
-    response = model.generate_content(prompt_regex)
+    # [YOUR_CODE_HERE] -> POTENS API 호출로 변경
+    response_text = call_potens_api(prompt_regex)
+    
     print("--- [AI가 생성한 Python 정규식 코드] ---")
-    print(response.text)
+    print(response_text)
     print("---------------------------------------")
 
 except Exception as e:
@@ -59,9 +78,11 @@ prompt_sql = """
 """
 
 try:
-    response = model.generate_content(prompt_sql)
+    # [YOUR_CODE_HERE] -> POTENS API 호출로 변경
+    response_text = call_potens_api(prompt_sql)
+    
     print("--- [AI가 생성한 SQL 쿼리] ---")
-    print(response.text)
+    print(response_text)
     print("-------------------------------")
 
 except Exception as e:
@@ -83,9 +104,55 @@ data = {'스타벅스': 120, '이마트': 85, '신세계백화점': 40}
 """
 
 try:
-    response = model.generate_content(prompt_viz)
+    # [YOUR_CODE_HERE] -> POTENS API 호출로 변경
+    response_text = call_potens_api(prompt_viz)
+    
     print("--- [AI가 생성한 Matplotlib 시각화 코드] ---")
-    print(response.text)
+    print(response_text)
 
 except Exception as e:
     print(f"🚨 [에러] API 호출 실패: {e}")
+# %%
+import matplotlib.pyplot as plt
+from matplotlib import font_manager, rc
+
+# 한글 폰트 설정 (Windows, Mac, Linux 환경별 대응)
+import platform
+
+system = platform.system()
+
+if system == 'Windows':
+    # Windows 환경
+    font_name = font_manager.FontProperties(fname='c:/Windows/Fonts/malgun.ttf').get_name()
+    rc('font', family=font_name)
+elif system == 'Darwin':  # Mac
+    rc('font', family='AppleGothic')
+else:  # Linux
+    rc('font', family='NanumGothic')
+
+# 마이너스 기호 깨짐 방지
+plt.rcParams['axes.unicode_minus'] = False
+
+# 데이터
+data = {'스타벅스': 120, '이마트': 85, '신세계백화점': 40}
+
+# 데이터 분리
+stores = list(data.keys())
+visits = list(data.values())
+
+# 막대 그래프 생성
+plt.figure(figsize=(10, 6))
+plt.bar(stores, visits, color='skyblue', edgecolor='navy', alpha=0.7)
+
+# 제목 및 레이블 설정
+plt.title('매장별 방문 횟수', fontsize=16, fontweight='bold')
+plt.xlabel('매장명', fontsize=12)
+plt.ylabel('방문 횟수', fontsize=12)
+
+# 그리드 추가 (선택사항)
+plt.grid(axis='y', linestyle='--', alpha=0.3)
+
+# 그래프 표시
+plt.tight_layout()
+plt.show()
+# %%
