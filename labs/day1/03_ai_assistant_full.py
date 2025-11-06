@@ -23,7 +23,7 @@ if not API_KEY:
 else:
     # Gemini 클라이언트 초기화
     genai.configure(api_key=API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-pro-latest') # 또는 2.5 Pro
+    model = genai.GenerativeModel('gemini-2.5-flash') # 또는 2.5 Pro
     print("✅ Gemini 클라이언트 초기화 완료.")
 
 # %% [markdown]

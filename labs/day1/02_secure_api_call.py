@@ -65,6 +65,7 @@ if not API_KEY:
 else:
     print("✅ [성공] .env 파일에서 API Key를 성공적으로 로드했습니다.")
 
+# %%
 # === 3. LLM API 클라이언트 초기화 ===
 # (아래는 OpenAI/Google 예시이며, 사용할 API에 맞게 수정합니다)
 
@@ -74,7 +75,15 @@ else:
 # [Google Gemini 사용 시]
 import google.generativeai as genai
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel('gemini-1.5-pro-latest') # 또는 2.5 Pro
+
+print("사용 가능한 모델:")
+# 'generateContent' 메서드를 지원하는 모델 목록을 가져옵니다.
+for m in genai.list_models():
+  if 'generateContent' in m.supported_generation_methods:
+    print(m.name)
+
+# %% 
+model = genai.GenerativeModel('models/gemini-2.5-flash') # 사용하고자 하는 모델명 입력
 print("✅ Gemini 클라이언트 초기화 완료.")
 
 # %% [markdown]
@@ -90,7 +99,7 @@ try:
     # [YOUR_CODE_HERE]
     # (힌트) model.generate_content("...") 를 호출합니다.
     response = model.generate_content("신한카드가 GenAI 교육을 하는 이유에 대해 한 문장으로 요약해줘.")
-    print(f"API 응답: {response.text}")
+    print(f"{response.text}")
     
     # [OpenAI 사용 시]
     # response = client.chat.completions.create(
@@ -109,7 +118,7 @@ except Exception as e:
 # %% [markdown]
 # ---
 # ### 🔒 Section 3: (The Secure Way) PII 마스킹 (Presidio)
-# 
+#. 
 # 드디어 Day 1의 핵심입니다.
 # 고객 VOC 데이터를 API로 요약하고 싶지만, **민감정보(PII)**가 포함되어 있습니다.
 # `presidio`를 사용해 PII를 **탐지(Analyze)**하고 **마스킹(Anonymize)**한 후,
@@ -197,9 +206,9 @@ if 'anonymized_text' in locals():
         print(response.text)
         
         print("\n✅ [성공] PII를 마스킹하여 안전하게 API를 호출했습니다.")
-        print("    (학습 목표 1, 3 달성!)")
 
     except Exception as e:
         print(f"🚨 [에러] 마스킹된 데이터 호출 중 에러 발생: {e}")
 else:
     print("🚨 [에러] 마스킹된 텍스트('anonymized_text')가 준비되지 않았습니다.")
+# %%

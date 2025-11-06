@@ -1,0 +1,91 @@
+# %% [markdown]
+# # Lab 3-1: AI as Co-Pilot
+#
+# **학습 목표:**
+# 1. AI 조수에게 데이터 분석가에게 필요한 코드(정규식, SQL, 시각화) 생성을 요청합니다.
+#
+# 💡 **CLI Warm-up:** `gemini "Python pandas로 CSV 파일 읽어서 'Age' 컬럼 평균 구하는 코드 짜줘"`
+
+# %%
+# === 1. 기본 설정 ===
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# .env 파일에서 API Key 로드
+load_dotenv()
+API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not API_KEY:
+    print("🚨 [에러] .env 파일에서 API Key를 로드하세요.")
+else:
+    genai.configure(api_key=API_KEY)
+    model = genai.GenerativeModel('gemini-2.5-flash')
+    print("✅ Gemini 클라이언트 초기화 완료.")
+
+# %% [markdown]
+# ---
+# ### Section 1: AI as Co-Pilot (데이터 분석가를 위한 코드 생성)
+
+# %%
+# === 2. (NEW) 정규식(Regex) 생성 요청 ===
+print("\n--- [1. 정규식(Regex) 생성 요청] ---")
+prompt_regex = """
+'log_data.txt' 파일에 아래와 같은 로그가 수백 줄 있습니다.
+"2023-10-27 10:30:01,ERROR,192.168.1.10,PaymentFailed,User=123"
+
+이 텍스트에서 '날짜' (YYYY-MM-DD), '로그 레벨' (ERROR, INFO 등), 'IP 주소'
+3가지 정보를 추출하는 Python 정규식(regex) 코드를 작성해줘.
+re.findall()을 사용하는 예시 코드로 보여줘.
+"""
+
+try:
+    response = model.generate_content(prompt_regex)
+    print("--- [AI가 생성한 Python 정규식 코드] ---")
+    print(response.text)
+    print("---------------------------------------")
+
+except Exception as e:
+    print(f"🚨 [에러] API 호출 실패: {e}")
+
+# %%
+# === 3. SQL 쿼리 생성 요청 ===
+print("\n--- [2. SQL 쿼리 생성 요청] ---")
+prompt_sql = """
+테이블 'CARD_TRANSACTIONS' (컬럼: user_id, amount, merchant_name, transaction_date)에서
+'merchant_name'이 '스타벅스'이면서 'amount'가 10000원 이상인
+'user_id'를 'transaction_date' 기준으로 최신순 정렬(DESC)하여
+중복 없이 10개만 조회하는 SQL 쿼리를 생성해줘.
+"""
+
+try:
+    response = model.generate_content(prompt_sql)
+    print("--- [AI가 생성한 SQL 쿼리] ---")
+    print(response.text)
+    print("-------------------------------")
+
+except Exception as e:
+    print(f"🚨 [에러] API 호출 실패: {e}")
+
+# %%
+# === 4. (NEW) 데이터 시각화 코드 생성 ===
+print("\n--- [3. 데이터 시각화 코드 생성 요청] ---")
+prompt_viz = """
+Python의 'matplotlib' 라이브러리를 사용해서,
+아래 딕셔너리 데이터를 'Bar Chart'(막대 그래프)로 그리는 코드를 생성해줘.
+
+data = {'스타벅스': 120, '이마트': 85, '신세계백화점': 40}
+
+- X축은 key (매장명), Y축은 value (방문 횟수)
+- 차트 제목(Title)은 '매장별 방문 횟수'
+- X축, Y축 레이블(Label) 설정
+- 한글 폰트가 깨지지 않도록 설정하는 코드 포함
+"""
+
+try:
+    response = model.generate_content(prompt_viz)
+    print("--- [AI가 생성한 Matplotlib 시각화 코드] ---")
+    print(response.text)
+
+except Exception as e:
+    print(f"🚨 [에러] API 호출 실패: {e}")

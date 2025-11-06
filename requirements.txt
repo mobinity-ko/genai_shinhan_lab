@@ -8,6 +8,10 @@ langchain-anthropic    # Anthropic API 용
 langchain-google-genai   # Gemini API 용 (필수)
 langsmith                # (권장) LangChain 디버깅 및 추적용
 
+openai                   # OpenAI API 직접 호출용
+google-generativeai      # Gemini API 직접 호출용
+anthropic                # Anthropic API 직접 호출용
+
 # 2. Day 2 (DA): Streamlit (Web App)
 streamlit
 streamlit-chat
