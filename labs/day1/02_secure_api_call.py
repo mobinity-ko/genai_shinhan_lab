@@ -10,8 +10,9 @@
 # === 1. 기본 설정 ===
 # Lab 1에서 설치한 라이브러리들을 불러옵니다.
 import os
+import requests
 from dotenv import load_dotenv
-from openai import OpenAI  # 또는 Anthropic, Google Gemini
+# from openai import OpenAI  # 또는 Anthropic, Google Gemini
 from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
 
@@ -48,72 +49,38 @@ print("라이브러리 로드 완료!")
 # === 2. .env 파일 로드 ===
 
 # load_dotenv()가 .env 파일을 찾아 환경 변수로 로드합니다.
-# [YOUR_CODE_HERE]
-# (힌트) load_dotenv() 함수를 호출하세요.
 load_dotenv()
 
 # os.getenv()를 사용해 환경 변수로 로드된 Key를 가져옵니다.
-# [YOUR_CODE_HERE]
-# (힌트) 변수 API_KEY에 os.getenv("YOUR_ENV_KEY_NAME")을 할당하세요.
-# (예: "GOOGLE_API_KEY", "OPENAI_API_KEY")
-API_KEY = os.getenv("GOOGLE_API_KEY") # 또는 OPENAI_API_KEY
-
-if not API_KEY:
-    print("🚨 [에러] .env 파일에서 API Key를 찾을 수 없습니다.")
-    print("    1. .env 파일을 생성했는지 확인하세요.")
-    print("    2. Key 이름(예: GOOGLE_API_KEY)이 올바른지 확인하세요.")
-else:
-    print("✅ [성공] .env 파일에서 API Key를 성공적으로 로드했습니다.")
-
-# %%
-# === 3. LLM API 클라이언트 초기화 ===
-# (아래는 OpenAI/Google 예시이며, 사용할 API에 맞게 수정합니다)
-
-# [OpenAI 사용 시]
-# client = OpenAI(api_key=API_KEY)
-
-# [Google Gemini 사용 시]
-import google.generativeai as genai
-genai.configure(api_key=API_KEY)
-
-print("사용 가능한 모델:")
-# 'generateContent' 메서드를 지원하는 모델 목록을 가져옵니다.
-for m in genai.list_models():
-  if 'generateContent' in m.supported_generation_methods:
-    print(m.name)
-
-# %% 
-model = genai.GenerativeModel('models/gemini-2.5-flash') # 사용하고자 하는 모델명 입력
-print("✅ Gemini 클라이언트 초기화 완료.")
+API_KEY = os.getenv("POTENS_API_KEY") # 또는 사용할 LLM에 맞게 변경
 
 # %% [markdown]
 # ### [실습] My First LLM API Call
 # 
 # 위에서 초기화한 `model` (또는 `client`)을 사용해 API 호출을 테스트합니다.
 
-# %%
+#%%
 # === 4. API 호출 테스트 ===
+API_URL = "https://ai.potens.ai/api/chat"
 
+headers = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
+body = {
+    "prompt": "신한카드가 GenAI 교육을 하는 이유에 대해 한 문장으로 요약해줘.",
+    # "system_prompt": "너는 고양이야. 고양이처럼 대답해줘"
+}
 try:
-    # [Gemini 사용 시]
-    # [YOUR_CODE_HERE]
-    # (힌트) model.generate_content("...") 를 호출합니다.
-    response = model.generate_content("신한카드가 GenAI 교육을 하는 이유에 대해 한 문장으로 요약해줘.")
-    print(f"{response.text}")
-    
-    # [OpenAI 사용 시]
-    # response = client.chat.completions.create(
-    #     model="gpt-4o", # 또는 gpt-5
-    #     messages=[{"role": "user", "content": "신한카드가 GenAI 교육을 하는 이유에 대해 한 문장으로 요약해줘."}]
-    # )
-    # print(f"API 응답: {response.choices[0].message.content}")
+    response = requests.post(API_URL, headers=headers, json=body)
+    response.raise_for_status() # 오류가 있으면 예외 발생
 
-    print("\n✅ [성공] API가 성공적으로 호출되었습니다.")
+    api_response = response.json()
+    print(f"API 응답: {api_response['message']}")
+    print("\n✅ [성공] requests로 API가 성공적으로 호출되었습니다.")
 
 except Exception as e:
     print(f"🚨 [에러] API 호출에 실패했습니다: {e}")
-    print("    1. API Key가 올바른지 확인하세요.")
-    print("    2. 인터넷 연결 및 API Quota를 확인하세요.")
 
 # %% [markdown]
 # ---
@@ -137,7 +104,7 @@ print("✅ Presidio 엔진 초기화 완료.")
 # === 6. 실습 데이터 로드 ===
 # (사전 제공된 'sample_customer_query.txt' 파일)
 try:
-    with open('sample_customer_query.txt', 'r', encoding='utf-8') as f:
+    with open('./data/sample_customer_query.txt', 'r', encoding='utf-8') as f:
         pii_text = f.read()
     print("--- [원본 데이터] ---")
     print(pii_text)
@@ -190,7 +157,7 @@ if analyzer_results:
 # (힌트) Section 2에서 사용한 model.generate_content()를 다시 호출하되,
 # PII가 마스킹된 'anonymized_text'를 입력값으로 사용합니다.
 
-if 'anonymized_text' in locals():
+if 'anonymized_text' in locals() and API_KEY:
     try:
         prompt = f"""
         다음은 고객 VOC 내용입니다. 고객의 요청 사항을 한 문장으로 요약해 주세요.
@@ -201,11 +168,19 @@ if 'anonymized_text' in locals():
         """
         
         # [Gemini 사용 시]
-        response = model.generate_content(prompt)
-        print("--- [LLM의 안전한 요약] ---")
-        print(response.text)
+        body = {
+            "prompt": prompt
+        }
         
-        print("\n✅ [성공] PII를 마스킹하여 안전하게 API를 호출했습니다.")
+        print("⏳ 마스킹된 데이터로 자체 LLM API 호출 중...")
+        response = requests.post(API_URL, headers=headers, json=body, timeout=30)
+        response.raise_for_status()
+
+        api_response = response.json()
+        print("--- [LLM의 안전한 요약] ---")
+        print(f"{api_response.get('message', '응답 메시지 없음')}")
+        
+        print("\n✅ [성공] PII를 마스킹하여 안전하게 (자체) API를 호출했습니다.")
 
     except Exception as e:
         print(f"🚨 [에러] 마스킹된 데이터 호출 중 에러 발생: {e}")
