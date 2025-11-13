@@ -97,8 +97,13 @@ with st.sidebar:
     )
     
     if uploaded_file is not None:
-        # CSV 읽기
-        st.session_state.df = pd.read_csv(uploaded_file)
+        # CSV 읽기 (Arrow 호환을 위해 dtype 변환)
+        df = pd.read_csv(uploaded_file)
+        # nullable dtypes를 일반 numpy dtypes로 변환 (Arrow 직렬화 문제 해결)
+        for col in df.columns:
+            if hasattr(df[col].dtype, 'numpy_dtype'):  # nullable dtype 확인
+                df[col] = df[col].astype(df[col].dtype.numpy_dtype)
+        st.session_state.df = df
         st.success(f"✅ 파일 로드 완료: {uploaded_file.name}")
         
         # 데이터 미리보기
@@ -194,35 +199,44 @@ def extract_code(response_text):
 def safe_exec(code, context):
     """
     코드를 안전하게 실행
-    
+
     Args:
         code: 실행할 Python 코드
         context: 실행 컨텍스트 (예: {"df": dataframe})
-    
+
     Returns:
         실행 결과 또는 에러 메시지
     """
     try:
+        # 안전한 builtins 딕셔너리 생성
+        import builtins
+        safe_builtins = {
+            # 기본 함수들
+            "len": len, "sum": sum, "max": max, "min": min, "round": round,
+            "print": print, "str": str, "int": int, "float": float, "bool": bool,
+            "list": list, "dict": dict, "tuple": tuple, "set": set,
+            "abs": abs, "all": all, "any": any, "enumerate": enumerate,
+            "range": range, "zip": zip, "sorted": sorted, "reversed": reversed,
+            "filter": filter, "map": map,
+            # 타입 체크
+            "isinstance": isinstance, "type": type,
+            # 기타
+            "True": True, "False": False, "None": None,
+        }
+
         # 허용된 globals (보안을 위해 제한)
         safe_globals = {
             "pd": pd,
             "df": context.get("df"),
-            "__builtins__": {
-                "len": len,
-                "sum": sum,
-                "max": max,
-                "min": min,
-                "round": round,
-                "print": print,
-            }
+            "__builtins__": safe_builtins,
         }
-        
+
         # 로컬 변수 저장용
         local_vars = {}
-        
+
         # 코드 실행
         exec(code, safe_globals, local_vars)
-        
+
         # 결과 추출 (마지막 변수 또는 출력)
         if local_vars:
             # 'result' 변수가 있으면 반환
@@ -230,9 +244,9 @@ def safe_exec(code, context):
                 return local_vars["result"]
             # 아니면 마지막 변수 반환
             return local_vars[list(local_vars.keys())[-1]]
-        
+
         return "✅ 실행 완료 (출력 없음)"
-        
+
     except Exception as e:
         return f"❌ 에러: {str(e)}"
 
