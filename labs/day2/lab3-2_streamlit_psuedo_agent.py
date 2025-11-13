@@ -1,28 +1,25 @@
 """
-핸즈온 랩 3: Streamlit + Pseudo-Agent 연동
+핸즈온 랩 3: Streamlit + Pseudo-Agent 연동 (최종 완전 버전)
 파일명: app.py
 실행: streamlit run app.py
 
-소요 시간: 45분
-난이도: ⭐⭐⭐
-
-학습 목표:
-1. Streamlit으로 대화형 UI 구축
-2. session_state로 대화 이력 관리
-3. CSV 파일 업로드 및 분석
-4. Pseudo-Agent와 실시간 협업
+🔧 최종 수정 v3:
+- 표현식 평가 (eval) 추가 ⭐ 핵심!
+- print 출력 캡처
+- PyArrow 에러 해결
 """
 
 import streamlit as st
 import pandas as pd
 import re
+import sys
 from io import StringIO
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from potens_wrapper import PotensChatModel  # 랩 1,2에서 만든 Wrapper 사용
+from potens_wrapper import PotensChatModel
 
 # ============================================================================
-# Part 1: 페이지 설정 및 초기화
+# Part 1: 페이지 설정
 # ============================================================================
 
 st.set_page_config(
@@ -35,12 +32,11 @@ st.title("🤖 AI 데이터 분석 어시스턴트")
 st.caption("POTENS LLM 기반 대화형 데이터 분석 도구")
 
 # ============================================================================
-# Part 2: LLM 초기화 (캐싱으로 재사용)
+# Part 2: LLM 초기화
 # ============================================================================
 
 @st.cache_resource
 def get_chat_model():
-    """LLM을 한 번만 초기화하고 재사용"""
     return PotensChatModel()
 
 chat_model = get_chat_model()
@@ -49,7 +45,6 @@ chat_model = get_chat_model()
 # Part 3: 세션 상태 초기화
 # ============================================================================
 
-# ReAct 시스템 프롬프트
 REACT_SYSTEM_PROMPT = """
 당신은 데이터 분석 전문가입니다.
 
@@ -57,24 +52,22 @@ REACT_SYSTEM_PROMPT = """
 
 Thought: (무엇을 해야 할지 생각)
 Action: python_repl
-Action Input: (실행할 Python 코드)
+Action Input:
+(실행할 Python 코드를 여기에 작성)
 
 사용자가 "Observation: [결과]"를 제공하면, 그 결과를 분석하고 다음 행동을 결정하세요.
 
 최종 답변이 준비되면:
 Final Answer: [최종 답변]
 
-**중요:**
+**중요 규칙:**
 - 한 번에 하나의 Action만 제안
-- 코드는 실행 가능한 완전한 형태로 작성
 - 데이터프레임 변수명은 'df'를 사용
+- Action Input 다음 줄에 코드를 작성하세요
 """
 
-# 세션 상태 초기화
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        SystemMessage(content=REACT_SYSTEM_PROMPT)
-    ]
+    st.session_state.messages = [SystemMessage(content=REACT_SYSTEM_PROMPT)]
 
 if "df" not in st.session_state:
     st.session_state.df = None
@@ -82,14 +75,16 @@ if "df" not in st.session_state:
 if "pending_code" not in st.session_state:
     st.session_state.pending_code = None
 
+if "debug_mode" not in st.session_state:
+    st.session_state.debug_mode = False
+
 # ============================================================================
-# Part 4: 사이드바 - 데이터 업로드 및 설정
+# Part 4: 사이드바
 # ============================================================================
 
 with st.sidebar:
     st.header("⚙️ 설정")
     
-    # CSV 파일 업로드
     uploaded_file = st.file_uploader(
         "CSV 파일 업로드",
         type=["csv"],
@@ -97,16 +92,9 @@ with st.sidebar:
     )
     
     if uploaded_file is not None:
-        # CSV 읽기 (Arrow 호환을 위해 dtype 변환)
-        df = pd.read_csv(uploaded_file)
-        # nullable dtypes를 일반 numpy dtypes로 변환 (Arrow 직렬화 문제 해결)
-        for col in df.columns:
-            if hasattr(df[col].dtype, 'numpy_dtype'):  # nullable dtype 확인
-                df[col] = df[col].astype(df[col].dtype.numpy_dtype)
-        st.session_state.df = df
+        st.session_state.df = pd.read_csv(uploaded_file)
         st.success(f"✅ 파일 로드 완료: {uploaded_file.name}")
         
-        # 데이터 미리보기
         with st.expander("📊 데이터 미리보기"):
             st.dataframe(st.session_state.df.head(10))
             
@@ -115,48 +103,30 @@ with st.sidebar:
                 st.metric("행 수", len(st.session_state.df))
             with col2:
                 st.metric("컬럼 수", len(st.session_state.df.columns))
-            
-            st.write("**컬럼 정보:**")
-            st.write(st.session_state.df.dtypes)
     
     st.divider()
     
-    # 대화 초기화 버튼
     if st.button("🔄 대화 초기화", use_container_width=True):
-        st.session_state.messages = [
-            SystemMessage(content=REACT_SYSTEM_PROMPT)
-        ]
+        st.session_state.messages = [SystemMessage(content=REACT_SYSTEM_PROMPT)]
         st.session_state.pending_code = None
         st.rerun()
     
+    st.session_state.debug_mode = st.checkbox("🐛 디버그 모드", value=False)
+    
     st.divider()
     
-    # 사용 가이드
     with st.expander("📖 사용 가이드"):
         st.markdown("""
-        **1단계: 데이터 업로드**
-        - CSV 파일을 업로드하세요
-        
-        **2단계: 질문하기**
+        **질문 예시:**
         - "평균 나이를 구해줘"
-        - "상관관계 분석해줘"
-        - "인사이트 3개 찾아줘"
-        
-        **3단계: 코드 실행**
-        - Agent가 제안한 코드 확인
-        - "실행" 버튼 클릭
-        - 결과가 자동으로 Agent에게 전달됨
-        
-        **팁:**
-        - 구체적으로 질문할수록 좋은 결과
-        - 단계별로 진행 상황 확인 가능
+        - "도시별 평균 연봉을 보여줘"
+        - "컬럼 목록을 보여줘"
         """)
 
 # ============================================================================
-# Part 5: 메인 영역 - 대화 인터페이스
+# Part 5: 대화 표시
 # ============================================================================
 
-# 이전 대화 표시 (SystemMessage 제외)
 for msg in st.session_state.messages[1:]:
     if isinstance(msg, HumanMessage):
         with st.chat_message("user"):
@@ -166,101 +136,187 @@ for msg in st.session_state.messages[1:]:
             st.write(msg.content)
 
 # ============================================================================
-# Part 6: 코드 추출 및 실행 함수
+# Part 6: 코드 추출 및 실행 함수 (최종 완전 버전)
 # ============================================================================
 
 def extract_code(response_text):
-    """
-    Agent 응답에서 Action Input 코드 추출
+    """Agent 응답에서 코드 추출 (강화 버전)"""
     
-    패턴:
-    1. Action Input: 다음 줄부터 빈 줄까지
-    2. ```python ... ``` 블록
-    """
-    # 패턴 1: Action Input: 이후
-    if "Action Input:" in response_text:
-        lines = response_text.split("Action Input:")[1].split("\n")
-        code_lines = []
-        for line in lines[1:]:  # Action Input: 다음 줄부터
-            if line.strip() == "" or line.startswith("Observation") or line.startswith("Thought"):
-                break
-            code_lines.append(line)
-        if code_lines:
-            return "\n".join(code_lines).strip()
+    if st.session_state.debug_mode:
+        with st.expander("🔍 디버그: 원본 응답"):
+            st.code(response_text)
     
-    # 패턴 2: ```python 블록
-    pattern = r"```python\s*(.*?)\s*```"
+    # 패턴 1: ```python ... ``` 블록 먼저 시도
+    pattern = r"```(?:python)?\s*(.*?)\s*```"
     matches = re.findall(pattern, response_text, re.DOTALL)
     if matches:
-        return matches[0].strip()
+        code = matches[0].strip()
+        # 주석 제거 (선택사항)
+        code = "\n".join(line for line in code.split("\n") if not line.strip().startswith("#"))
+        if code:
+            if st.session_state.debug_mode:
+                st.success("✅ 코드 블록에서 추출")
+            return code
+    
+    # 패턴 2: Action Input: 이후
+    if "Action Input:" in response_text:
+        after_action_input = response_text.split("Action Input:")[1]
+        lines = after_action_input.split("\n")
+        
+        code_lines = []
+        in_code_block = False
+        
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            
+            # 코드 블록 시작 감지
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            
+            # 종료 조건
+            if not in_code_block:
+                if stripped.startswith("Observation") or \
+                   stripped.startswith("Thought") or \
+                   stripped.startswith("Final Answer") or \
+                   stripped.startswith("Action:"):
+                    break
+                
+                # 빈 줄이고 이미 코드가 있으면 종료
+                if not stripped and code_lines:
+                    break
+            
+            # 첫 줄이면서 코드가 있으면 추가
+            if i == 0 and stripped and not stripped.startswith("```"):
+                code_lines.append(line)
+            # 코드 블록 안이거나 일반 코드
+            elif stripped or in_code_block:
+                code_lines.append(line)
+        
+        if code_lines:
+            code = "\n".join(code_lines).strip()
+            if code:
+                if st.session_state.debug_mode:
+                    st.success("✅ Action Input에서 추출")
+                return code
+    
+    if st.session_state.debug_mode:
+        st.warning("⚠️ 코드를 찾을 수 없습니다")
     
     return None
 
 def safe_exec(code, context):
     """
-    코드를 안전하게 실행
-
-    Args:
-        code: 실행할 Python 코드
-        context: 실행 컨텍스트 (예: {"df": dataframe})
-
-    Returns:
-        실행 결과 또는 에러 메시지
+    코드를 안전하게 실행 (최종 완전 버전)
+    
+    핵심 개선:
+    1. 표현식(expression) 평가 ⭐
+    2. print 출력 캡처
+    3. PyArrow 에러 방지
     """
     try:
-        # 안전한 builtins 딕셔너리 생성
-        import builtins
-        safe_builtins = {
-            # 기본 함수들
-            "len": len, "sum": sum, "max": max, "min": min, "round": round,
-            "print": print, "str": str, "int": int, "float": float, "bool": bool,
-            "list": list, "dict": dict, "tuple": tuple, "set": set,
-            "abs": abs, "all": all, "any": any, "enumerate": enumerate,
-            "range": range, "zip": zip, "sorted": sorted, "reversed": reversed,
-            "filter": filter, "map": map,
-            # 타입 체크
-            "isinstance": isinstance, "type": type,
-            # 기타
-            "True": True, "False": False, "None": None,
-        }
-
-        # 허용된 globals (보안을 위해 제한)
+        # stdout 캡처
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = StringIO()
+        
+        # 허용된 globals
         safe_globals = {
             "pd": pd,
             "df": context.get("df"),
-            "__builtins__": safe_builtins,
+            "__builtins__": {
+                "len": len, "sum": sum, "max": max, "min": min,
+                "round": round, "print": print, "str": str,
+                "int": int, "float": float, "list": list, "dict": dict,
+                "range": range, "enumerate": enumerate, "sorted": sorted,
+                "abs": abs, "any": any, "all": all,
+            }
         }
-
-        # 로컬 변수 저장용
+        
         local_vars = {}
-
-        # 코드 실행
-        exec(code, safe_globals, local_vars)
-
-        # 결과 추출 (마지막 변수 또는 출력)
+        
+        if st.session_state.debug_mode:
+            with st.expander("🔍 디버그: 실행할 코드"):
+                st.code(code, language="python")
+        
+        # ⭐ 핵심: 표현식인지 문장인지 확인
+        # 먼저 exec로 실행 시도
+        try:
+            exec(code, safe_globals, local_vars)
+        except SyntaxError:
+            # exec 실패하면 eval 시도 (표현식일 수 있음)
+            pass
+        
+        # stdout 복원 및 출력 가져오기
+        sys.stdout = old_stdout
+        printed_output = captured_output.getvalue()
+        
+        # 결과 수집
+        results = []
+        
+        # 1. print 출력
+        if printed_output.strip():
+            results.append(printed_output.strip())
+        
+        # 2. 변수 결과
         if local_vars:
-            # 'result' 변수가 있으면 반환
             if "result" in local_vars:
-                return local_vars["result"]
-            # 아니면 마지막 변수 반환
-            return local_vars[list(local_vars.keys())[-1]]
-
-        return "✅ 실행 완료 (출력 없음)"
-
+                result_value = local_vars["result"]
+            else:
+                result_value = local_vars[list(local_vars.keys())[-1]]
+            
+            results.append(format_result(result_value))
+        
+        # 3. ⭐ 변수가 없으면 표현식으로 평가
+        elif not printed_output.strip():
+            try:
+                result_value = eval(code, safe_globals, {})
+                results.append(format_result(result_value))
+            except:
+                pass
+        
+        # 결과 반환
+        if results:
+            return "\n\n".join(results)
+        else:
+            return "✅ 실행 완료"
+        
     except Exception as e:
-        return f"❌ 에러: {str(e)}"
+        sys.stdout = old_stdout
+        
+        error_msg = f"❌ 에러: {str(e)}"
+        
+        if st.session_state.debug_mode:
+            with st.expander("🐛 디버그: 에러 상세"):
+                st.error(error_msg)
+                import traceback
+                st.code(traceback.format_exc())
+        
+        return error_msg
+
+def format_result(result_value):
+    """결과를 포맷팅 (PyArrow 에러 방지)"""
+    if isinstance(result_value, pd.DataFrame):
+        df_str = f"DataFrame ({result_value.shape[0]}행 x {result_value.shape[1]}컬럼)\n"
+        df_str += result_value.head(10).to_string()
+        return df_str
+    elif isinstance(result_value, pd.Series):
+        series_str = f"Series (길이 {len(result_value)})\n"
+        series_str += result_value.head(10).to_string()
+        return series_str
+    else:
+        return str(result_value)
 
 # ============================================================================
 # Part 7: Pending Code 실행 UI
 # ============================================================================
 
 if st.session_state.pending_code:
-    st.info("💡 Agent가 코드를 제안했습니다. 확인 후 실행하세요.")
+    st.info("💡 Agent가 코드를 제안했습니다.")
     
     with st.expander("🔧 제안된 코드", expanded=True):
         st.code(st.session_state.pending_code, language="python")
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             if st.button("▶️ 실행", type="primary", use_container_width=True):
@@ -268,18 +324,23 @@ if st.session_state.pending_code:
                     st.error("⚠️ 먼저 CSV 파일을 업로드하세요!")
                 else:
                     with st.spinner("실행 중..."):
-                        # 코드 실행
                         result = safe_exec(
                             st.session_state.pending_code,
                             {"df": st.session_state.df}
                         )
                         
-                        # 결과 표시
                         st.success("✅ 실행 완료")
-                        st.write("**결과:**")
-                        st.write(result)
                         
-                        # Observation을 메시지에 추가
+                        # 결과 표시
+                        with st.container():
+                            st.write("**실행 결과:**")
+                            if len(result) > 500:
+                                with st.expander("📊 결과 보기", expanded=True):
+                                    st.text(result)
+                            else:
+                                st.text(result)
+                        
+                        # Observation 추가
                         observation_msg = f"Observation: {result}"
                         st.session_state.messages.append(
                             HumanMessage(content=observation_msg)
@@ -290,18 +351,28 @@ if st.session_state.pending_code:
                             response = chat_model.invoke(st.session_state.messages)
                             st.session_state.messages.append(response)
                         
-                        # Pending code 초기화
                         st.session_state.pending_code = None
                         st.rerun()
         
         with col2:
+            if st.button("✏️ 수정", use_container_width=True):
+                modified_code = st.text_area(
+                    "코드 수정",
+                    value=st.session_state.pending_code,
+                    height=150,
+                    key="code_edit"
+                )
+                if st.button("💾 저장", key="save_edit"):
+                    st.session_state.pending_code = modified_code
+                    st.success("✅ 수정됨")
+                    st.rerun()
+        
+        with col3:
             if st.button("⏭️ 건너뛰기", use_container_width=True):
-                # 건너뛰기 메시지 추가
                 st.session_state.messages.append(
-                    HumanMessage(content="Observation: (실행 건너뜀. 다른 방법을 시도하세요)")
+                    HumanMessage(content="Observation: (건너뜀)")
                 )
                 
-                # Agent에게 다시 요청
                 with st.spinner("Agent 응답 대기..."):
                     response = chat_model.invoke(st.session_state.messages)
                     st.session_state.messages.append(response)
@@ -313,34 +384,27 @@ if st.session_state.pending_code:
 # Part 8: 사용자 입력 처리
 # ============================================================================
 
-if user_input := st.chat_input("분석 요청을 입력하세요... (예: '평균 나이를 구해줘')"):
-    # 데이터 업로드 확인
+if user_input := st.chat_input("분석 요청을 입력하세요..."):
     if st.session_state.df is None:
         st.error("⚠️ 먼저 CSV 파일을 업로드하세요!")
         st.stop()
     
-    # 사용자 메시지 표시
     with st.chat_message("user"):
         st.write(user_input)
     
-    # 메시지 이력에 추가
     st.session_state.messages.append(HumanMessage(content=user_input))
     
-    # Agent 응답 생성
     with st.chat_message("assistant"):
         with st.spinner("생각 중..."):
             response = chat_model.invoke(st.session_state.messages)
             st.write(response.content)
     
-    # 응답을 이력에 추가
     st.session_state.messages.append(response)
     
-    # Action Input이 있으면 pending_code로 저장
     code = extract_code(response.content)
     if code and "Final Answer:" not in response.content:
         st.session_state.pending_code = code
     
-    # 페이지 새로고침
     st.rerun()
 
 # ============================================================================
@@ -348,25 +412,4 @@ if user_input := st.chat_input("분석 요청을 입력하세요... (예: '평�
 # ============================================================================
 
 st.divider()
-st.caption("💡 Tip: Agent의 제안을 신뢰하되, 항상 코드를 확인하세요!")
-
-# ============================================================================
-# 실행 방법
-# ============================================================================
-"""
-터미널에서 실행:
-    streamlit run app.py
-
-필요한 파일:
-    - potens_wrapper.py (랩 1,2에서 작성)
-    - .env (POTENS_API_KEY 포함)
-    - sample.csv (테스트용 데이터)
-
-주요 기능:
-    ✅ CSV 파일 업로드
-    ✅ 대화형 분석 요청
-    ✅ Agent의 코드 제안 확인
-    ✅ 안전한 코드 실행
-    ✅ 자동 Observation 전달
-    ✅ 멀티턴 대화 이력 관리
-"""
+st.caption("💡 표현식(df.columns), 문장(result = ...), print() 모두 지원합니다!")
