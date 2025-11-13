@@ -9,7 +9,7 @@
 3. 사람-AI 협업 패턴 체험
 4. Pandas 데이터 분석 자동화
 """
-
+# %%
 import pandas as pd
 import numpy as np
 import re
