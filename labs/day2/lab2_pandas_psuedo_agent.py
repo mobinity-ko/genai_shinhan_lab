@@ -19,39 +19,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from potens_wrapper import PotensChatModel
 
 # %% [markdown]
-# # Part 1: ReAct 패턴 이해하기 (15분)
-# 
-# ## 🤖 Traditional Agent vs Pseudo-Agent
-# 
-# ### Traditional Agent (Function Calling 필요)
-# ```
-# User: "평균 나이 구해줘"
-# ↓
-# Agent: {"function": "python_repl", "args": {"code": "df['age'].mean()"}}
-# ↓ (자동 실행)
-# System: 32.5
-# ↓ (자동 전달)
-# Agent: "평균 나이는 32.5세입니다"
-# ```
-# 
-# ### Pseudo-Agent (ReAct 프롬프팅)
-# ```
-# User: "평균 나이 구해줘"
-# ↓
-# Agent: "Thought: 평균을 구해야겠다
-#         Action: python_repl
-#         Action Input: df['age'].mean()"
-# ↓ (👤 사람이 실행)
-# User: "Observation: 32.5"
-# ↓
-# Agent: "평균 나이는 32.5세입니다"
-# ```
-# 
-# **장점:**
-# - ✅ Function Calling 불필요
-# - ✅ 모든 단계가 투명 (verbose=True 효과)
-# - ✅ 사람이 중간 검증 가능
-# - ✅ 보안성 향상
+# # Part 1: ReAct 패턴 이해하기
 
 # %% 1-1. 샘플 데이터 생성
 
@@ -86,7 +54,7 @@ print(df.head())
 
 # %% [markdown]
 # ---
-# # Part 2: ReAct 시스템 프롬프트 작성 (10분)
+# # Part 2: ReAct 시스템 프롬프트 작성
 
 # %% 2-1. ReAct 시스템 프롬프트 정의
 
@@ -131,7 +99,7 @@ print("✅ 프롬프트 정의 완료")
 
 # %% [markdown]
 # ---
-# # Part 3: Pandas Pseudo-Agent 클래스 구현 (20분)
+# # Part 3: Pandas Pseudo-Agent 클래스 구현
 
 # %% 3-1. PandasPseudoAgent 클래스
 
@@ -349,7 +317,7 @@ class PandasPseudoAgent:
 
 # %% [markdown]
 # ---
-# # Part 4: Agent 실행 및 체험 (15분)
+# # Part 4: Agent 실행 및 체험
 
 # %% 4-1. Agent 초기화
 
@@ -390,14 +358,11 @@ print("💡 각 단계마다 코드를 확인하고 실행 여부를 결정할 �
 agent2 = PandasPseudoAgent(chat_model, df)
 
 # 주석 해제하여 대화형으로 실행
-# result2 = agent2.run(
-#     question="구매 횟수가 가장 많은 상위 5개 도시를 찾아주세요",
-#     max_iterations=5,
-#     auto_execute=False  # 수동 실행 - 사용자 확인 필요
-# )
-
-print("\n💡 위 주석을 해제하고 실행하면 대화형 Agent를 체험할 수 있습니다!")
-
+result2 = agent2.run(
+    question="구매 횟수가 가장 많은 상위 5개 도시를 찾아주세요",
+    max_iterations=5,
+    auto_execute=False  # 수동 실행 - 사용자 확인 필요
+)
 # %% 4-4. 실습 3: 멀티스텝 분석 (자동 모드)
 
 print("\n" + "="*80)
@@ -416,81 +381,12 @@ agent3.show_conversation()
 
 # %% [markdown]
 # ---
-# # Part 5: 다양한 질문으로 실험 (보너스)
-
-# %% 5-1. 실험용 질문 모음
-
-SAMPLE_QUESTIONS = [
-    "고객 데이터에서 결측치가 있나요?",
-    "성별에 따른 평균 구매액 차이를 분석해주세요",
-    "구매 횟수와 총 구매액의 상관관계를 계산해주세요",
-    "서울 지역 고객 중 Gold 등급 이상인 사람은 몇 명인가요?",
-    "나이대별(20대, 30대, 40대, 50대, 60대)로 그룹화해서 평균 구매액을 보여주세요"
-]
-
-print("\n" + "="*80)
-print("💡 실험해볼 수 있는 질문들:")
-print("="*80)
-for i, q in enumerate(SAMPLE_QUESTIONS, 1):
-    print(f"{i}. {q}")
-
-print("\n사용 예시:")
-print("""
+# # Part 5: 다양한 질문으로 실험
+# %%
+# 원하는 질문으로 변경하여 실행해보세요!
 agent = PandasPseudoAgent(chat_model, df)
 result = agent.run(
-    question=SAMPLE_QUESTIONS[0],  # 원하는 질문 선택
+    question=" ",
     max_iterations=5,
     auto_execute=True
 )
-""")
-
-# %% [markdown]
-# ---
-# # 🎉 실습 완료!
-# 
-# ## 배운 내용:
-# 
-# ### 1. ReAct 패턴의 핵심
-# - ✅ **Thought**: Agent의 "생각" 과정 투명화
-# - ✅ **Action/Action Input**: 명확한 실행 계획
-# - ✅ **Observation**: 실행 결과 기반 다음 행동 결정
-# - ✅ **Final Answer**: 사용자 친화적 답변
-# 
-# ### 2. Pseudo-Agent의 장점
-# - ✅ Function Calling 불필요
-# - ✅ 모든 단계를 사람이 확인 가능 (verbose=True 효과)
-# - ✅ 안전성: 위험한 코드 실행 방지
-# - ✅ 교육적: Agent의 의사결정 과정 학습
-# 
-# ### 3. 사람-AI 협업 패턴
-# - ✅ Agent는 "계획" 수립
-# - ✅ 사람은 "검증" 및 "승인"
-# - ✅ Agent는 "결과 해석" 및 "다음 단계"
-# 
-# ## 💡 현실 적용 시 고려사항:
-# 
-# ### 장점
-# - 대부분의 LLM에서 작동 (범용성)
-# - 보안 정책 준수 용이
-# - 디버깅 및 개선 쉬움
-# 
-# ### 한계
-# - 완전 자동화는 어려움
-# - 복잡한 분석은 반복 횟수 증가
-# - 코드 파싱 오류 가능성
-# 
-# ### 극복 방법
-# - 프롬프트 튜닝으로 정확도 향상
-# - 에러 처리 로직 강화
-# - 자주 사용하는 패턴 템플릿화
-# 
-# ## 🚀 다음 단계:
-# - 핸즈온 랩 3에서는 이 Agent를 Streamlit UI로 감싸봅니다!
-# - 버튼 클릭으로 코드 실행
-# - 대화 이력 시각화
-# - CSV 파일 업로드
-# 
-# ## 💭 생각해볼 질문:
-# 1. 완전 자동 Agent vs Pseudo-Agent, 어느 것이 더 실무에 적합할까?
-# 2. DA의 역할이 어떻게 변화하는가?
-# 3. 어떤 분석 작업을 Agent에게 맡길 수 있을까?
