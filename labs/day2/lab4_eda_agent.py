@@ -14,7 +14,7 @@
 - print 출력 캡처
 - 에러 처리 개선
 """
-
+# %%
 import pandas as pd
 import numpy as np
 import re
@@ -35,6 +35,13 @@ EDA_SYSTEM_PROMPT = """
 
 **목표:** 사용자가 제공한 목표를 달성하기 위해 자율적으로 데이터를 분석하세요.
 
+**중요 규칙:**
+1. pandas(pd)와 numpy(np)는 이미 import되어 있습니다 - 다시 import하지 마세요!
+2. DataFrame 변수명은 'df'를 사용하세요
+3. 코드를 제안한 후에는 반드시 "Observation: [결과]"를 기다리세요!
+4. 절대 코드 실행 결과를 예상하거나 추측하지 마세요!
+5. Observation을 받은 후에만 다음 Thought와 Action을 제시하세요!
+
 **분석 프로세스:**
 1. 데이터 기본 구조 파악 (shape, dtypes, describe)
 2. 결측치 및 이상치 확인
@@ -42,31 +49,29 @@ EDA_SYSTEM_PROMPT = """
 4. 패턴 및 이상 현상 탐지
 5. 비즈니스 인사이트 도출
 
-**형식:**
+**작업 형식:**
 Thought: (현재 단계에서 무엇을 해야 할지)
 Action: python_repl
 Action Input:
+# pandas와 numpy는 이미 import되어 있음! 바로 사용하세요.
 (실행할 Python 코드)
 
-사용자가 "Observation: [결과]"를 제공하면 분석을 계속하세요.
-
-**최종 답변 형식:**
+**최종 답변 형식 (충분한 분석 후에만):**
 Final Answer: 
 ## 인사이트 1: [제목]
-- 발견: [구체적 수치와 함께]
+- 발견: [실제 데이터에서 확인한 구체적 수치]
 - 의미: [비즈니스적 해석]
-- 제안: [액션 아이템]
+- 제안: [실행 가능한 액션]
 
 ## 인사이트 2: ...
 
 ## 인사이트 3: ...
 
-**중요 규칙:**
-- 각 분석은 이전 결과를 기반으로 진행
-- 인사이트는 구체적 수치 포함
-- 비즈니스 가치를 명확히 설명
-- 최소 3개 이상의 인사이트 도출
-- 데이터프레임 변수명은 'df' 사용
+**필수 규칙:**
+- 최소 5번 이상 코드를 실행하고 결과를 확인한 후 Final Answer 제시
+- 모든 인사이트는 실제 Observation에서 얻은 수치 기반
+- 추측이나 가정 금지 - 오직 데이터가 보여주는 것만 보고
+- 각 분석은 이전 Observation을 기반으로 진행
 """
 
 print("✅ EDA Agent 시스템 프롬프트 정의 완료")
@@ -126,7 +131,31 @@ class EDAAgent:
             print(f"{'─'*80}")
             
             # Agent에게 다음 행동 요청
-            response = self.chat_model.invoke(self.messages)
+            response = None
+            max_retries = 3
+            
+            for attempt in range(max_retries):
+                try:
+                    print(f"\n⏳ Agent에게 요청 중... (시도 {attempt + 1}/{max_retries})")
+                    response = self.chat_model.invoke(self.messages)
+                    break  # 성공하면 루프 탈출
+                    
+                except Exception as e:
+                    error_msg = str(e)
+                    print(f"\n⚠️ API 에러 발생: {error_msg[:100]}...")
+                    
+                    if attempt < max_retries - 1:
+                        import time
+                        wait_time = (attempt + 1) * 2  # 2초, 4초, 6초
+                        print(f"   {wait_time}초 후 재시도...")
+                        time.sleep(wait_time)
+                    else:
+                        print(f"\n❌ {max_retries}번 시도 후 실패")
+                        return f"API 에러로 인한 조기 종료. 현재까지 {len(self.execution_history)}개 코드 실행 완료."
+            
+            if not response:
+                continue
+                
             print(f"\n🤖 Agent 응답:\n{response.content[:500]}...")
             
             self.messages.append(response)
@@ -166,13 +195,27 @@ class EDAAgent:
         return "최대 반복 횟수 초과. Final Answer를 받지 못했습니다."
     
     def _get_data_info(self) -> str:
-        """데이터 기본 정보 생성"""
+        """데이터 기본 정보 생성 (간결 버전)"""
         info_lines = [
             f"- Shape: {self.df.shape[0]}행 x {self.df.shape[1]}컬럼",
             f"- 컬럼: {', '.join(self.df.columns.tolist())}",
-            f"- 타입: {self.df.dtypes.to_dict()}",
-            f"- 결측치: {self.df.isnull().sum().to_dict()}",
         ]
+        
+        # 타입은 요약만
+        type_summary = {}
+        for dtype in self.df.dtypes.unique():
+            count = (self.df.dtypes == dtype).sum()
+            type_summary[str(dtype)] = count
+        info_lines.append(f"- 타입 요약: {type_summary}")
+        
+        # 결측치는 있는 것만
+        missing = self.df.isnull().sum()
+        missing_cols = missing[missing > 0]
+        if len(missing_cols) > 0:
+            info_lines.append(f"- 결측치: {missing_cols.to_dict()}")
+        else:
+            info_lines.append("- 결측치: 없음")
+        
         return "\n".join(info_lines)
     
     def _extract_code(self, response_text: str) -> str:
@@ -242,8 +285,18 @@ class EDAAgent:
         1. 표현식 평가 (eval)
         2. print 출력 캡처
         3. 에러 처리 강화
+        4. 불필요한 import 제거
+        5. 중복 출력 방지
         """
         try:
+            # 불필요한 import 제거 (이미 globals에 있음)
+            code = code.replace("import pandas as pd", "").strip()
+            code = code.replace("import numpy as np", "").strip()
+            
+            # 빈 코드면 건너뛰기
+            if not code:
+                return "⚠️ 실행할 코드가 없습니다 (import만 있었음)"
+            
             # stdout 캡처
             old_stdout = sys.stdout
             sys.stdout = captured_output = StringIO()
@@ -258,6 +311,8 @@ class EDAAgent:
                     "int": int, "float": float, "list": list, "dict": dict,
                     "abs": abs, "any": any, "all": all,
                     "range": range, "enumerate": enumerate, "sorted": sorted,
+                    "zip": zip, "map": map, "filter": filter,
+                    "set": set, "tuple": tuple, "bool": bool,
                 }
             }
             
@@ -273,21 +328,30 @@ class EDAAgent:
             # 결과 수집
             results = []
             
-            # 1. print 출력
+            # 1. print 출력 (최우선)
             if printed_output.strip():
-                results.append(printed_output.strip())
+                # 너무 긴 출력은 잘라내기 (타임아웃 방지)
+                output = printed_output.strip()
+                if len(output) > 2000:
+                    output = output[:1000] + "\n... (중략) ...\n" + output[-1000:]
+                results.append(output)
+                
+                # print가 있으면 변수 결과는 생략 (중복 방지)
+                if len(output) > 100:
+                    return output
             
-            # 2. 변수 결과
+            # 2. 변수 결과 (print가 없거나 짧을 때만)
             if local_vars:
                 if "result" in local_vars:
                     result_value = local_vars["result"]
                 else:
                     result_value = local_vars[list(local_vars.keys())[-1]]
                 
-                results.append(self._format_result(result_value))
+                formatted = self._format_result(result_value)
+                results.append(formatted)
             
             # 3. 표현식 평가 (변수도 없고 출력도 없으면)
-            elif not printed_output.strip():
+            elif not results:
                 try:
                     result_value = eval(code, safe_globals, {})
                     results.append(self._format_result(result_value))
@@ -296,22 +360,42 @@ class EDAAgent:
             
             # 결과 반환
             if results:
-                return "\n\n".join(results)
+                final_result = "\n\n".join(results)
+                # 최종 결과도 길이 제한 (타임아웃 방지)
+                if len(final_result) > 2000:
+                    final_result = final_result[:1000] + "\n\n... (결과가 너무 길어 중략) ...\n\n" + final_result[-1000:]
+                return final_result
             else:
                 return "✅ 실행 완료"
                 
         except Exception as e:
             sys.stdout = old_stdout
-            return f"❌ 에러: {str(e)}"
+            error_msg = str(e)
+            # 에러 메시지도 길이 제한
+            if len(error_msg) > 500:
+                error_msg = error_msg[:500] + "..."
+            return f"❌ 에러: {error_msg}"
     
     def _format_result(self, result_value):
-        """결과 포맷팅"""
+        """결과 포맷팅 (간결 버전)"""
         if isinstance(result_value, pd.DataFrame):
-            return f"DataFrame({result_value.shape[0]}행 x {result_value.shape[1]}컬럼)\n{result_value.head(3).to_string()}"
+            # 간결한 요약만
+            summary = f"DataFrame({result_value.shape[0]}행 x {result_value.shape[1]}컬럼)"
+            # 작은 DataFrame만 내용 표시
+            if result_value.shape[0] <= 5 and result_value.shape[1] <= 5:
+                summary += f"\n{result_value.to_string()}"
+            return summary
         elif isinstance(result_value, pd.Series):
-            return f"Series(길이 {len(result_value)})\n{result_value.head(5).to_string()}"
+            summary = f"Series(길이 {len(result_value)})"
+            if len(result_value) <= 10:
+                summary += f"\n{result_value.to_string()}"
+            return summary
         else:
-            return str(result_value)
+            result_str = str(result_value)
+            # 긴 결과는 잘라내기
+            if len(result_str) > 1000:
+                result_str = result_str[:500] + "\n...(중략)..." + result_str[-500:]
+            return result_str
     
     def _extract_final_answer(self, response_text: str) -> str:
         """Final Answer 추출"""
@@ -338,7 +422,7 @@ class EDAAgent:
 # 전자상거래 매출 데이터 생성
 np.random.seed(42)
 
-n_customers = 1000
+n_customers = 100
 
 sample_df = pd.DataFrame({
     'customer_id': range(1, n_customers + 1),
@@ -402,16 +486,3 @@ eda_agent.show_history()
 # - 탐색 시간 50% 단축
 # - DA는 검증 및 심화에 집중
 # - 반복 작업 자동화
-"""
-실행 방법:
-    python lab4_eda_agent.py
-    
-또는 Jupyter에서 셀 단위 실행
-
-개선 사항 요약:
-    ✅ 코드 파싱 강화 (모든 Agent 응답 형식 지원)
-    ✅ 표현식 평가 (df.describe() 같은 단순 표현식도 실행)
-    ✅ print 출력 캡처 (StringIO 사용)
-    ✅ PyArrow 에러 방지 (문자열 변환)
-    ✅ 에러 처리 개선
-"""
