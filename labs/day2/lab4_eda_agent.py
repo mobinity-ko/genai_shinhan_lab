@@ -7,12 +7,6 @@
 1. 포괄적 목표를 자율적으로 달성하는 Agent 구축
 2. EDA 프로세스의 자동화
 3. 비즈니스 인사이트 자동 발굴
-
-🔧 개선 사항:
-- 코드 파싱 강화 (모든 형식 지원)
-- 표현식 평가 (eval) 추가
-- print 출력 캡처
-- 에러 처리 개선
 """
 # %%
 import pandas as pd
@@ -78,7 +72,7 @@ print("✅ EDA Agent 시스템 프롬프트 정의 완료")
 
 # %% [markdown]
 # ---
-# # Part 2: EDA Agent 클래스 구현 (개선 버전)
+# # Part 2: EDA Agent 클래스 구현
 
 # %% 2-1. EDA Agent 클래스
 
@@ -115,13 +109,13 @@ class EDAAgent:
         # 초기 메시지: 목표 + 데이터 정보
         data_info = self._get_data_info()
         initial_message = f"""
-**목표:** {goal}
+            **목표:** {goal}
 
-**데이터 정보:**
-{data_info}
+            **데이터 정보:**
+            {data_info}
 
-위 목표를 달성하기 위해 단계별로 분석을 시작하세요.
-"""
+            위 목표를 달성하기 위해 단계별로 분석을 시작하세요.
+            """
         self.messages.append(HumanMessage(content=initial_message))
         
         # 반복 실행
@@ -415,40 +409,46 @@ class EDAAgent:
 
 # %% [markdown]
 # ---
-# # Part 3: 샘플 데이터 생성 및 테스트
+# # Part 3: 테스트
 
 # %% 3-1. 샘플 데이터 생성
 
 # 전자상거래 매출 데이터 생성
-np.random.seed(42)
+# np.random.seed(42)
 
-n_customers = 100
+# n_customers = 100
 
-sample_df = pd.DataFrame({
-    'customer_id': range(1, n_customers + 1),
-    'age': np.random.randint(20, 70, n_customers),
-    'gender': np.random.choice(['M', 'F'], n_customers),
-    'region': np.random.choice(['서울', '경기', '부산', '기타'], n_customers),
-    'purchase_count': np.random.poisson(5, n_customers),
-    'total_amount': np.random.exponential(300000, n_customers),
-    'avg_rating': np.random.uniform(1, 5, n_customers),
-    'is_premium': np.random.choice([0, 1], n_customers, p=[0.7, 0.3])
-})
+# sample_df = pd.DataFrame({
+#     'customer_id': range(1, n_customers + 1),
+#     'age': np.random.randint(20, 70, n_customers),
+#     'gender': np.random.choice(['M', 'F'], n_customers),
+#     'region': np.random.choice(['서울', '경기', '부산', '기타'], n_customers),
+#     'purchase_count': np.random.poisson(5, n_customers),
+#     'total_amount': np.random.exponential(300000, n_customers),
+#     'avg_rating': np.random.uniform(1, 5, n_customers),
+#     'is_premium': np.random.choice([0, 1], n_customers, p=[0.7, 0.3])
+# })
 
-# 일부러 패턴 추가 (인사이트 발굴용)
-sample_df.loc[sample_df['is_premium'] == 1, 'total_amount'] *= 2
-sample_df.loc[sample_df['region'] == '서울', 'avg_rating'] += 0.5
-sample_df['avg_rating'] = sample_df['avg_rating'].clip(1, 5)
-sample_df.loc[sample_df['age'].between(40, 49), 'purchase_count'] += 2
+# # 일부러 패턴 추가 (인사이트 발굴용)
+# sample_df.loc[sample_df['is_premium'] == 1, 'total_amount'] *= 2
+# sample_df.loc[sample_df['region'] == '서울', 'avg_rating'] += 0.5
+# sample_df['avg_rating'] = sample_df['avg_rating'].clip(1, 5)
+# sample_df.loc[sample_df['age'].between(40, 49), 'purchase_count'] += 2
 
-print("✅ 샘플 데이터 생성 완료")
-print(sample_df.head())
+# print("✅ 샘플 데이터 생성 완료")
+# print(sample_df.head())
+
+# %% 3-1. 데이터 파일 로드
+
+df = pd.read_csv("sample_ecommerce.csv")
+print(f"데이터 로드 완료: {df.shape[0]}행 x {df.shape[1]}컬럼")
+print(f"컬럼: {df.columns.tolist()}")
 
 # %% 3-2. EDA Agent 실행
 
 # Agent 초기화
 chat_model = PotensChatModel()
-eda_agent = EDAAgent(chat_model, sample_df)
+eda_agent = EDAAgent(chat_model, df)
 
 # 실행
 insights = eda_agent.run(
@@ -475,12 +475,6 @@ eda_agent.show_history()
 # 2. ✅ 강화된 코드 파싱 (모든 형식 지원)
 # 3. ✅ 표현식 평가 및 print 캡처
 # 4. ✅ 비즈니스 인사이트 도출
-# 
-# ## 개선 사항:
-# - 코드 블록(```) 우선 파싱
-# - 표현식 자동 평가
-# - print 출력 캡처
-# - 에러 처리 강화
 # 
 # ## 💡 실무 적용:
 # - 탐색 시간 50% 단축
